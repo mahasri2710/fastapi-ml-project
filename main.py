@@ -9,7 +9,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
-app = FastAPI(title="ML API with FastAPI", version="3.0")
+app = FastAPI(title="ML API with FastAPI", version="4.0")
 app.include_router(ml_router)
 
 

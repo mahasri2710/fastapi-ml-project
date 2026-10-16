@@ -1,25 +1,56 @@
-"""API routes for training, prediction and evaluation."""
+"""API routes for dataset upload, training, prediction and evaluation."""
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from utils import ml_utils
 from utils.schemas import (
+    DatasetInfoResponse,
     EvaluateResponse,
     PredictRequest,
     PredictResponse,
     TrainResponse,
+    UploadResponse,
 )
 
 logger = logging.getLogger("ml_api")
 router = APIRouter()
 
 
-@router.post("/train", response_model=TrainResponse)
-def train():
-    """Train the model on data/sample.csv."""
+@router.post("/upload-dataset", response_model=UploadResponse)
+async def upload_dataset(file: UploadFile = File(...)):
+    """Upload a CSV (columns: hours_studied, attendance, passed)."""
+    if not (file.filename or "").lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Please upload a .csv file")
     try:
-        return ml_utils.train_model()
+        content = await file.read()
+        return ml_utils.save_uploaded_dataset(content)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error during upload")
+        raise HTTPException(status_code=500, detail="Upload failed")
+
+
+@router.get("/dataset-info", response_model=DatasetInfoResponse)
+def dataset_info():
+    """Show which dataset will be used for training."""
+    try:
+        return ml_utils.dataset_info()
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error reading dataset info")
+        raise HTTPException(status_code=500, detail="Could not read dataset")
+
+
+@router.post("/train", response_model=TrainResponse)
+def train(tune: bool = False):
+    """Train the model. Use tune=true for hyperparameter tuning."""
+    try:
+        return ml_utils.train_model(tune=tune)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:

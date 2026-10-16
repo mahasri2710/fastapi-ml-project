@@ -3,6 +3,7 @@
 Paths are built from this file's location, so the code works
 no matter which folder you start uvicorn from.
 """
+import io
 import logging
 from pathlib import Path
 
@@ -16,12 +17,14 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV, train_test_split
 
 logger = logging.getLogger("ml_api")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_PATH = BASE_DIR / "data" / "sample.csv"
+UPLOAD_PATH = BASE_DIR / "data" / "uploaded.csv"
+MAX_UPLOAD_BYTES = 1_000_000  # 1 MB
 MODEL_PATH = BASE_DIR / "models" / "model.pkl"
 
 FEATURES = ["hours_studied", "attendance"]
@@ -32,10 +35,16 @@ class ModelNotReadyError(Exception):
     """Raised when predict/evaluate is called before a valid /train."""
 
 
+def _active_data_path() -> Path:
+    """Use the uploaded dataset if there is one, else the sample dataset."""
+    return UPLOAD_PATH if UPLOAD_PATH.exists() else DATA_PATH
+
+
 def _load_dataset() -> pd.DataFrame:
-    if not DATA_PATH.exists():
-        raise FileNotFoundError(f"Dataset not found at {DATA_PATH}")
-    df = pd.read_csv(DATA_PATH)
+    path = _active_data_path()
+    if not path.exists():
+        raise FileNotFoundError(f"Dataset not found at {path}")
+    df = pd.read_csv(path)
     if df.empty:
         raise ValueError("Dataset is empty")
     missing = [c for c in FEATURES if c not in df.columns]
@@ -52,9 +61,12 @@ def _target_column(df: pd.DataFrame) -> str:
     return df.columns[-1]
 
 
-def train_model() -> dict:
-    """Train on data/sample.csv, save the model, return a summary."""
-    logger.info("Training started")
+def train_model(tune: bool = False) -> dict:
+    """Train on the active dataset, save the model, return a summary.
+
+    If tune=True, GridSearchCV searches for the best value of C.
+    """
+    logger.info("Training started (tune=%s)", tune)
     df = _load_dataset()
     target = _target_column(df)
     df = df.dropna(subset=FEATURES + [target])
@@ -72,8 +84,26 @@ def train_model() -> dict:
     if y_train.nunique() < 2:
         X_train, y_train, X_test, y_test = X, y, X, y
 
-    model = LogisticRegression(max_iter=1000)
-    model.fit(X_train, y_train)
+    best_params = None
+    cv_score = None
+    if tune:
+        cv = min(3, int(y_train.value_counts().min()))
+        if cv < 2:
+            raise ValueError("Not enough data for tuning (need at least 2 rows per class)")
+        search = GridSearchCV(
+            LogisticRegression(max_iter=1000),
+            param_grid={"C": [0.01, 0.1, 1, 10, 100]},
+            cv=cv,
+            scoring="accuracy",
+        )
+        search.fit(X_train, y_train)
+        model = search.best_estimator_
+        best_params = {k: float(v) for k, v in search.best_params_.items()}
+        cv_score = round(float(search.best_score_), 4)
+        logger.info("Tuning done: best=%s cv_score=%.3f", best_params, cv_score)
+    else:
+        model = LogisticRegression(max_iter=1000)
+        model.fit(X_train, y_train)
 
     MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump({"model": model, "X_test": X_test, "y_test": y_test}, MODEL_PATH)
@@ -89,6 +119,52 @@ def train_model() -> dict:
         "rows_used": int(len(df)),
         "train_accuracy": round(train_acc, 4),
         "test_accuracy": round(test_acc, 4),
+        "tuned": tune,
+        "best_params": best_params,
+        "cv_score": cv_score,
+    }
+
+
+def save_uploaded_dataset(content: bytes) -> dict:
+    """Validate an uploaded CSV and save it as data/uploaded.csv."""
+    if not content:
+        raise ValueError("Uploaded file is empty")
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise ValueError("File too large (max 1 MB)")
+    try:
+        df = pd.read_csv(io.BytesIO(content))
+    except Exception:
+        raise ValueError("Could not read the file as a CSV")
+    if df.empty:
+        raise ValueError("CSV has no rows")
+    missing = [c for c in FEATURES if c not in df.columns]
+    if missing:
+        raise ValueError(f"CSV is missing columns: {missing}")
+    target = _target_column(df)
+    if target in FEATURES:
+        raise ValueError("CSV needs a target column (for example: passed) with 0 or 1")
+    if not set(df[target].dropna().unique()).issubset({0, 1}):
+        raise ValueError(f"Column '{target}' must contain only 0 and 1")
+    if df[FEATURES].isnull().all().any():
+        raise ValueError("Feature columns contain no valid values")
+
+    UPLOAD_PATH.parent.mkdir(parents=True, exist_ok=True)
+    UPLOAD_PATH.write_bytes(content)
+    logger.info("Dataset uploaded: rows=%d columns=%s", len(df), list(df.columns))
+    return {
+        "message": "Dataset uploaded. Call POST /train to train on it.",
+        "rows": int(len(df)),
+        "columns": list(df.columns),
+    }
+
+
+def dataset_info() -> dict:
+    path = _active_data_path()
+    df = _load_dataset()
+    return {
+        "source": path.name,
+        "rows": int(len(df)),
+        "columns": list(df.columns),
     }
 
 

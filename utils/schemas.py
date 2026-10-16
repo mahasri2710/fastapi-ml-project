@@ -1,5 +1,5 @@
 """Pydantic models for request and response validation."""
-from typing import List
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -14,6 +14,21 @@ class TrainResponse(BaseModel):
     rows_used: int
     train_accuracy: float
     test_accuracy: float
+    tuned: bool = False
+    best_params: Optional[Dict[str, float]] = None
+    cv_score: Optional[float] = None
+
+
+class UploadResponse(BaseModel):
+    message: str
+    rows: int
+    columns: List[str]
+
+
+class DatasetInfoResponse(BaseModel):
+    source: str
+    rows: int
+    columns: List[str]
 
 
 class PredictResponse(BaseModel):

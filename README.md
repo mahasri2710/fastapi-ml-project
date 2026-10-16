@@ -60,3 +60,9 @@ Training progress, prediction requests and responses are logged in the terminal.
 - Added pydantic request and response validation
 - POST /train, POST /predict, GET /evaluate endpoints
 - Added error handling and logging
+
+## Week 4 Progress (Day 22-23)
+- Added POST /upload-dataset to upload a CSV dataset
+- Added GET /dataset-info to show which dataset is used
+- Added hyperparameter tuning with GridSearchCV (POST /train?tune=true)
+- Added python-multipart to requirements.txt
