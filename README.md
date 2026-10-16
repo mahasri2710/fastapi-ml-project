@@ -54,3 +54,9 @@ Training progress, prediction requests and responses are logged in the terminal.
 - Added `/predict` endpoint with pydantic validation, numpy computation
 - Added error handling and logging for training and prediction
 - Tested all endpoints using Swagger UI and PowerShell (`test_api.ps1`)
+
+## Week 3 Progress
+- Restructured project into routes/ and utils/ folders
+- Added pydantic request and response validation
+- POST /train, POST /predict, GET /evaluate endpoints
+- Added error handling and logging
