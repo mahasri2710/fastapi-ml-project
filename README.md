@@ -1,5 +1,79 @@
 # FastAPI ML Project
+## Problem
+Colleges want to know early which students may fail, so they can help them in time. Doing this by hand for many students is slow.
 
+## Solution
+A REST API built with FastAPI and scikit-learn. It trains a model on student data (hours studied, attendance) and predicts whether a student will pass. Admins train the model, and any logged in user can get predictions.
+
+## Features
+- Train a model (with optional hyperparameter tuning) and upload your own CSV dataset
+- Predict for one student or a batch of up to 100 students
+- Evaluate the model: accuracy, precision, recall, F1, confusion matrix
+- JWT login with roles: admin (train, upload) and user (predict, evaluate)
+- Rate limiting, IP blocking, request logging, Prometheus style /metrics
+- Automated tests with pytest
+
+## Setup Steps
+1. Clone the repo: `git clone https://github.com/mahasri2710/fastapi-ml-project.git`
+2. Go into the folder: `cd fastapi-ml-project`
+3. Create a virtual environment: `python -m venv .venv`
+4. Activate it (Windows): `.venv\Scripts\activate`
+5. Install packages: `pip install -r requirements.txt`
+6. Run the server: `uvicorn main:app --reload`
+7. Open `http://127.0.0.1:8000/docs`
+8. Log in with the Authorize button. Demo logins: admin / admin123 and student / student123
+## Problem
+Colleges want to know early which students may fail, so they can help them in time. Doing this by hand for many students is slow.
+
+## Solution
+A REST API built with FastAPI and scikit-learn. It trains a model on student data (hours studied, attendance) and predicts whether a student will pass. Admins train the model, and any logged in user can get predictions.
+
+## Features
+- Train a model (with optional hyperparameter tuning) and upload your own CSV dataset
+- Predict for one student or a batch of up to 100 students
+- Evaluate the model: accuracy, precision, recall, F1, confusion matrix
+- JWT login with roles: admin (train, upload) and user (predict, evaluate)
+- Rate limiting, IP blocking, request logging, Prometheus style /metrics
+- Automated tests with pytest
+
+## Setup Steps
+1. Clone the repo: `git clone https://github.com/mahasri2710/fastapi-ml-project.git`
+2. Go into the folder: `cd fastapi-ml-project`
+3. Create a virtual environment: `python -m venv .venv`
+4. Activate it (Windows): `.venv\Scripts\activate`
+5. Install packages: `pip install -r requirements.txt`
+6. Run the server: `uvicorn main:app --reload`
+7. Open `http://127.0.0.1:8000/docs`
+8. Log in with the Authorize button. Demo logins: admin / admin123 and student / student123
+
+## API Endpoints
+| Method | Path | Who can use it |
+|--------|------|----------------|
+| POST | /login | everyone |
+| POST | /upload-dataset | admin |
+| POST | /train | admin |
+| POST | /predict | logged in user |
+| POST | /predict/batch | logged in user |
+| GET | /evaluate | logged in user |
+| GET | /model-info | logged in user |
+| GET | /health | everyone |
+
+## Run Tests
+`pytest`
+## API Endpoints
+| Method | Path | Who can use it |
+|--------|------|----------------|
+| POST | /login | everyone |
+| POST | /upload-dataset | admin |
+| POST | /train | admin |
+| POST | /predict | logged in user |
+| POST | /predict/batch | logged in user |
+| GET | /evaluate | logged in user |
+| GET | /model-info | logged in user |
+| GET | /health | everyone |
+
+## Run Tests
+`pytest`
 A simple Machine Learning API built with FastAPI and scikit-learn.
 It trains a model on a sample dataset (hours studied + attendance -> pass/fail)
 and returns predictions in JSON.
