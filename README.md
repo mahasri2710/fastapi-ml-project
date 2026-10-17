@@ -74,3 +74,11 @@ Training progress, prediction requests and responses are logged in the terminal.
 - Added automated tests with pytest (run: pytest)
 - Added Dockerfile for containerization
 - Default login for learning: admin / admin123 (set API_USERNAME and API_PASSWORD env variables for real use)
+
+## Week 5 Progress (Day 29-33)
+- Added role-based access control: admin (train, upload) and user (predict, evaluate)
+- Model is loaded into memory when the server starts and reloaded after training
+- Added GET /model-info and POST /predict/batch (up to 100 students)
+- JWT tokens now include the user role
+- Added more automated tests (roles, batch prediction, model info)
+- Demo logins for learning: admin / admin123 and student / student123

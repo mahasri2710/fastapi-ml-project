@@ -5,6 +5,7 @@ no matter which folder you start uvicorn from.
 """
 import io
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 import joblib
@@ -168,28 +169,76 @@ def dataset_info() -> dict:
     }
 
 
+# The trained model is loaded from disk once and kept in memory.
+# It is reloaded automatically when /train saves a new model file.
+_cache = {"mtime": None, "bundle": None}
+
+
 def _load_bundle() -> dict:
     if not MODEL_PATH.exists():
         raise ModelNotReadyError("Model not trained yet. Call POST /train first.")
+    mtime = MODEL_PATH.stat().st_mtime_ns
+    if _cache["bundle"] is not None and _cache["mtime"] == mtime:
+        return _cache["bundle"]
     bundle = joblib.load(MODEL_PATH)
     if not isinstance(bundle, dict) or "model" not in bundle:
         raise ModelNotReadyError(
             "Old model file found. Call POST /train again to create a new one."
         )
+    _cache["mtime"] = mtime
+    _cache["bundle"] = bundle
+    logger.info("Model loaded from disk")
     return bundle
 
 
-def predict(hours_studied: float, attendance: float) -> dict:
+def load_model_on_startup() -> bool:
+    """Called when the server starts. Returns True if a model was loaded."""
+    try:
+        _load_bundle()
+        return True
+    except ModelNotReadyError as e:
+        logger.warning("No model loaded at startup: %s", e)
+        return False
+
+
+def model_ready() -> bool:
+    try:
+        _load_bundle()
+        return True
+    except ModelNotReadyError:
+        return False
+
+
+def model_info() -> dict:
     bundle = _load_bundle()
     model = bundle["model"]
-    row = pd.DataFrame([[hours_studied, attendance]], columns=FEATURES)
-    passed = bool(model.predict(row)[0])
-    prob = float(model.predict_proba(row)[0][list(model.classes_).index(1)])
-    logger.info(
-        "Prediction: hours=%s attendance=%s -> passed=%s prob=%.3f",
-        hours_studied, attendance, passed, prob,
-    )
-    return {"passed": passed, "pass_probability": round(prob, 4)}
+    trained_at = datetime.fromtimestamp(MODEL_PATH.stat().st_mtime, tz=timezone.utc)
+    return {
+        "model_type": type(model).__name__,
+        "features": FEATURES,
+        "classes": [int(c) for c in model.classes_],
+        "trained_at": trained_at.isoformat(timespec="seconds"),
+    }
+
+
+def predict(hours_studied: float, attendance: float) -> dict:
+    return predict_batch([(hours_studied, attendance)])[0]
+
+
+def predict_batch(rows: list) -> list:
+    """Predict for many students at once. rows = [(hours_studied, attendance), ...]"""
+    bundle = _load_bundle()
+    model = bundle["model"]
+    df = pd.DataFrame(rows, columns=FEATURES)
+    labels = model.predict(df)
+    pass_index = list(model.classes_).index(1)
+    probs = model.predict_proba(df)[:, pass_index]
+    results = [
+        {"passed": bool(label), "pass_probability": round(float(prob), 4)}
+        for label, prob in zip(labels, probs)
+    ]
+    logger.info("Predicted %d row(s)", len(results))
+    return results
 
 
 def evaluate() -> dict:

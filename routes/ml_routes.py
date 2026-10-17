@@ -1,13 +1,21 @@
-"""API routes for dataset upload, training, prediction and evaluation."""
+"""API routes for dataset upload, training, prediction and evaluation.
+
+Access rules:
+  admin only   : /upload-dataset, /train
+  any logged in: /predict, /predict/batch, /evaluate, /model-info, /dataset-info
+"""
 import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from utils import ml_utils
-from utils.auth import get_current_user
+from utils.auth import get_current_user, require_role
 from utils.schemas import (
+    BatchPredictRequest,
+    BatchPredictResponse,
     DatasetInfoResponse,
     EvaluateResponse,
+    ModelInfoResponse,
     PredictRequest,
     PredictResponse,
     TrainResponse,
@@ -21,10 +29,10 @@ router = APIRouter()
 @router.post(
     "/upload-dataset",
     response_model=UploadResponse,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_role("admin"))],
 )
 async def upload_dataset(file: UploadFile = File(...)):
-    """Upload a CSV (columns: hours_studied, attendance, passed). Needs login."""
+    """Upload a CSV (columns: hours_studied, attendance, passed). Admin only."""
     if not (file.filename or "").lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Please upload a .csv file")
     try:
@@ -37,7 +45,11 @@ async def upload_dataset(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Upload failed")
 
 
-@router.get("/dataset-info", response_model=DatasetInfoResponse)
+@router.get(
+    "/dataset-info",
+    response_model=DatasetInfoResponse,
+    dependencies=[Depends(get_current_user)],
+)
 def dataset_info():
     """Show which dataset will be used for training."""
     try:
@@ -54,10 +66,10 @@ def dataset_info():
 @router.post(
     "/train",
     response_model=TrainResponse,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_role("admin"))],
 )
 def train(tune: bool = False):
-    """Train the model. Use tune=true for tuning. Needs login."""
+    """Train the model. Use tune=true for tuning. Admin only."""
     try:
         return ml_utils.train_model(tune=tune)
     except FileNotFoundError as e:
@@ -69,9 +81,29 @@ def train(tune: bool = False):
         raise HTTPException(status_code=500, detail="Training failed")
 
 
-@router.post("/predict", response_model=PredictResponse)
+@router.get(
+    "/model-info",
+    response_model=ModelInfoResponse,
+    dependencies=[Depends(get_current_user)],
+)
+def model_info():
+    """Show details of the model that is currently loaded."""
+    try:
+        return ml_utils.model_info()
+    except ml_utils.ModelNotReadyError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error reading model info")
+        raise HTTPException(status_code=500, detail="Could not read model info")
+
+
+@router.post(
+    "/predict",
+    response_model=PredictResponse,
+    dependencies=[Depends(get_current_user)],
+)
 def predict(request: PredictRequest):
-    """Predict pass/fail for one student."""
+    """Predict pass/fail for one student. Needs login."""
     try:
         result = ml_utils.predict(request.hours_studied, request.attendance)
         return {"input": request, **result}
@@ -82,9 +114,37 @@ def predict(request: PredictRequest):
         raise HTTPException(status_code=500, detail="Prediction failed")
 
 
-@router.get("/evaluate", response_model=EvaluateResponse)
+@router.post(
+    "/predict/batch",
+    response_model=BatchPredictResponse,
+    dependencies=[Depends(get_current_user)],
+)
+def predict_batch(request: BatchPredictRequest):
+    """Classify up to 100 students in one request. Needs login."""
+    try:
+        rows = [(i.hours_studied, i.attendance) for i in request.items]
+        results = ml_utils.predict_batch(rows)
+        return {
+            "count": len(results),
+            "results": [
+                {"input": item, **result}
+                for item, result in zip(request.items, results)
+            ],
+        }
+    except ml_utils.ModelNotReadyError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error during batch prediction")
+        raise HTTPException(status_code=500, detail="Batch prediction failed")
+
+
+@router.get(
+    "/evaluate",
+    response_model=EvaluateResponse,
+    dependencies=[Depends(get_current_user)],
+)
 def evaluate():
-    """Show accuracy, precision, recall, F1 and confusion matrix."""
+    """Show accuracy, precision, recall, F1 and confusion matrix. Needs login."""
     try:
         return ml_utils.evaluate()
     except ml_utils.ModelNotReadyError as e:

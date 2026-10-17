@@ -53,3 +53,26 @@ class TokenResponse(BaseModel):
 
 class MeResponse(BaseModel):
     username: str
+    role: str
+
+
+class BatchPredictRequest(BaseModel):
+    items: List[PredictRequest] = Field(..., min_length=1, max_length=100)
+
+
+class BatchItemResult(BaseModel):
+    input: PredictRequest
+    passed: bool
+    pass_probability: float
+
+
+class BatchPredictResponse(BaseModel):
+    count: int
+    results: List[BatchItemResult]
+
+
+class ModelInfoResponse(BaseModel):
+    model_type: str
+    features: List[str]
+    classes: List[int]
+    trained_at: str

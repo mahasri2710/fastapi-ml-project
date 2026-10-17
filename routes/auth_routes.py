@@ -14,18 +14,22 @@ router = APIRouter()
 @router.post("/login", response_model=TokenResponse)
 def login(form: OAuth2PasswordRequestForm = Depends()):
     """Log in with username and password to get a token."""
-    if not auth.verify_user(form.username, form.password):
+    role = auth.authenticate(form.username, form.password)
+    if role is None:
         logger.warning("Failed login for user '%s'", form.username)
         raise HTTPException(
             status_code=401,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    logger.info("User '%s' logged in", form.username)
-    return {"access_token": auth.create_access_token(form.username), "token_type": "bearer"}
+    logger.info("User '%s' logged in with role '%s'", form.username, role)
+    return {
+        "access_token": auth.create_access_token(form.username, role),
+        "token_type": "bearer",
+    }
 
 
 @router.get("/me", response_model=MeResponse)
-def me(username: str = Depends(auth.get_current_user)):
-    """Shows who you are logged in as (needs a token)."""
-    return {"username": username}
+def me(user: dict = Depends(auth.get_current_user)):
+    """Shows who you are logged in as and your role (needs a token)."""
+    return user

@@ -1,11 +1,12 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 
 from routes.auth_routes import router as auth_router
 from routes.ml_routes import router as ml_router
-from utils import metrics
+from utils import metrics, ml_utils
 from utils.middleware import SecurityMiddleware
 
 logging.basicConfig(
@@ -13,7 +14,15 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
-app = FastAPI(title="ML API with FastAPI", version="4.1")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # runs once when the server starts: load the saved model into memory
+    ml_utils.load_model_on_startup()
+    yield
+
+
+app = FastAPI(title="ML API with FastAPI", version="5.0", lifespan=lifespan)
 app.add_middleware(SecurityMiddleware)
 app.include_router(auth_router)
 app.include_router(ml_router)
@@ -26,7 +35,7 @@ def home():
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "model_ready": ml_utils.model_ready()}
 
 
 @app.get("/metrics", response_class=PlainTextResponse)
