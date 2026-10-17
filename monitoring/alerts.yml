@@ -1,0 +1,34 @@
+groups:
+  - name: ml-api-alerts
+    rules:
+      - alert: ApiDown
+        expr: up{job="ml-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ML API is down"
+
+      - alert: HighErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 5 percent of requests are failing with 5xx errors"
+
+      - alert: HighLatency
+        expr: sum(rate(http_request_duration_seconds_sum[5m])) / sum(rate(http_request_duration_seconds_count[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Average response time is above 1 second"
+
+      - alert: ManyBlockedRequests
+        expr: sum(increase(http_requests_total{status="429"}[5m])) > 50
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Many requests are being rate limited (possible abuse)"

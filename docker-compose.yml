@@ -1,0 +1,35 @@
+# Starts the API, Prometheus (collects metrics) and Grafana (graphs).
+# Before running, create a .env file (copy .env.example and change the values).
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      ENVIRONMENT: production
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in the .env file}
+      API_USERNAME: ${API_USERNAME:-admin}
+      API_PASSWORD: ${API_PASSWORD:?Set API_PASSWORD in the .env file}
+      STUDENT_USERNAME: ${STUDENT_USERNAME:-student}
+      STUDENT_PASSWORD: ${STUDENT_PASSWORD:?Set STUDENT_PASSWORD in the .env file}
+      RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-60}
+      LOGIN_LIMIT_PER_MIN: ${LOGIN_LIMIT_PER_MIN:-10}
+      BLOCKED_IPS: ${BLOCKED_IPS:-}
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus

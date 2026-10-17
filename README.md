@@ -82,3 +82,10 @@ Training progress, prediction requests and responses are logged in the terminal.
 - JWT tokens now include the user role
 - Added more automated tests (roles, batch prediction, model info)
 - Demo logins for learning: admin / admin123 and student / student123
+## Week 6 Progress (Day 36-40)
+- Added unit tests, edge case tests and integration tests (pytest, requests, JSON schema)
+- Tested rate limiting, IP blocking, bad and expired tokens, bad uploads
+- Secrets come from environment variables; production mode refuses default passwords
+- Added Dockerfile, docker-compose.yml, Prometheus config and alert rules (not run locally, Docker is not installed on my laptop)
+- Run tests: pytest
+- Run integration tests with the server running: pytest tests/test_integration.py -v

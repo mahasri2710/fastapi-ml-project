@@ -2,3 +2,5 @@
 __pycache__/
 *.pyc
 models/model.pkl
+.env
+

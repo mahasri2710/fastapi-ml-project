@@ -1,7 +1,1 @@
-fastapi
-uvicorn
-pydantic
-pandas
-scikit-learn
-python-multipart
-pyjwt
+ÿþ

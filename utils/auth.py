@@ -26,6 +26,21 @@ API_PASSWORD = os.getenv("API_PASSWORD", "admin123")
 STUDENT_USERNAME = os.getenv("STUDENT_USERNAME", "student")
 STUDENT_PASSWORD = os.getenv("STUDENT_PASSWORD", "student123")
 
+# Safety check: demo credentials are fine on your laptop, never in production.
+_USING_DEFAULTS = any(
+    name not in os.environ for name in ("SECRET_KEY", "API_PASSWORD", "STUDENT_PASSWORD")
+)
+if _USING_DEFAULTS:
+    if os.getenv("ENVIRONMENT", "development").lower() == "production":
+        raise RuntimeError(
+            "Set SECRET_KEY, API_PASSWORD and STUDENT_PASSWORD environment "
+            "variables before running in production."
+        )
+    logger.warning(
+        "Using default demo credentials. Set SECRET_KEY, API_PASSWORD and "
+        "STUDENT_PASSWORD environment variables for real use."
+    )
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 _SALT = os.urandom(16)
