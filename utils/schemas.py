@@ -44,3 +44,12 @@ class EvaluateResponse(BaseModel):
     f1_score: float
     confusion_matrix: List[List[int]]
     test_samples: int
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class MeResponse(BaseModel):
+    username: str

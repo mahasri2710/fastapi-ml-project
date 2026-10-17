@@ -1,9 +1,10 @@
 """API routes for dataset upload, training, prediction and evaluation."""
 import logging
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from utils import ml_utils
+from utils.auth import get_current_user
 from utils.schemas import (
     DatasetInfoResponse,
     EvaluateResponse,
@@ -17,9 +18,13 @@ logger = logging.getLogger("ml_api")
 router = APIRouter()
 
 
-@router.post("/upload-dataset", response_model=UploadResponse)
+@router.post(
+    "/upload-dataset",
+    response_model=UploadResponse,
+    dependencies=[Depends(get_current_user)],
+)
 async def upload_dataset(file: UploadFile = File(...)):
-    """Upload a CSV (columns: hours_studied, attendance, passed)."""
+    """Upload a CSV (columns: hours_studied, attendance, passed). Needs login."""
     if not (file.filename or "").lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Please upload a .csv file")
     try:
@@ -46,9 +51,13 @@ def dataset_info():
         raise HTTPException(status_code=500, detail="Could not read dataset")
 
 
-@router.post("/train", response_model=TrainResponse)
+@router.post(
+    "/train",
+    response_model=TrainResponse,
+    dependencies=[Depends(get_current_user)],
+)
 def train(tune: bool = False):
-    """Train the model. Use tune=true for hyperparameter tuning."""
+    """Train the model. Use tune=true for tuning. Needs login."""
     try:
         return ml_utils.train_model(tune=tune)
     except FileNotFoundError as e:

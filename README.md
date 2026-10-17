@@ -66,3 +66,11 @@ Training progress, prediction requests and responses are logged in the terminal.
 - Added GET /dataset-info to show which dataset is used
 - Added hyperparameter tuning with GridSearchCV (POST /train?tune=true)
 - Added python-multipart to requirements.txt
+
+## Week 4 Progress (Day 24-26)
+- Added JWT login (POST /login) and protected /train and /upload-dataset
+- Added rate limiting (60 requests per minute) and IP blocking
+- Added request logging and /metrics endpoint in Prometheus format
+- Added automated tests with pytest (run: pytest)
+- Added Dockerfile for containerization
+- Default login for learning: admin / admin123 (set API_USERNAME and API_PASSWORD env variables for real use)
